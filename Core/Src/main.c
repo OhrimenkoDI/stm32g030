@@ -101,20 +101,48 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
- /* SetRGB(10,20,30,0);
-  SetRGB(100,20,30,1);
-  SetRGB(200,20,30,2);
-  SetRGB(255,20,30,3);
-  SetRGB(0,0,0,4);
-  SetRGB(0,255,0,5);
-  SetRGB(0,0,255,6);*/
+  static uint16_t hue_offset = 0;
 
-  ws2812_set_rgb(0,255,0,0);
-  ws2812_set_rgb(1,0,255,0);
-  ws2812_set_rgb(2,0,0,255);
-  ws2812_set_rgb(3,255,255,0);
-  ws2812_set_rgb(4,255,0,255);
-  ws2812_set_rgb(5,0,255,255);
+  while (1)
+  {
+      LL_mDelay(4);   // скорость вращения радуги
+
+      for (uint16_t i = 0; i < LED_COUNT; i++)
+      {
+          uint16_t hue = (i * 256 / LED_COUNT + hue_offset) & 0xFF;
+
+          uint8_t r, g, b;
+          hsv_to_rgb(hue, 255, 80, &r, &g, &b); // яркость 80 — щадит глаза
+
+          ws2812_set_rgb(i, r, g, b);
+      }
+
+      ws2812_start();
+
+      hue_offset++;   // вращаем радугу
+      LL_GPIO_TogglePin(LEDB_GPIO_Port, LEDB_Pin);
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   static uint16_t led = 0;
   static uint16_t lastled = LED_COUNT - 1;

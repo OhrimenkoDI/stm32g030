@@ -43,5 +43,8 @@ void ws2812_dma_half_irq(void);
 void ws2812_dma_full_irq(void);
 void ws2812_set_rgb(uint16_t led, uint8_t r, uint8_t g, uint8_t b);
 
+void hsv_to_rgb(uint16_t h, uint8_t s, uint8_t v,
+                       uint8_t *r, uint8_t *g, uint8_t *b);
+
 
 #endif /* INC_LED_WS2812_H_ */
