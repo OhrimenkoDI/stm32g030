@@ -9,23 +9,13 @@ static uint16_t pwm_buf[DMA_BUF_BITS];
 
 /* ===== внутреннее состояние ===== */
 static uint32_t led_index = 0;
-static uint8_t bit_index = 0;
 static bool sending_reset = false;
 
 void DMA1_Channel1_IRQHandler(void)
 {
-	uint32_t total = DMA_BUF_BITS;
-	uint32_t remaining = LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_1);
-	uint32_t idx = total - remaining;
-
-	if (idx<2){
-		LL_GPIO_TogglePin(CH14_GPIO_Port, CH14_Pin);
-	}
-
 	if (LL_DMA_IsActiveFlag_HT1(DMA1)) // здесь указатель массива равен 1/2 длинны DMA_HALF_BITS
     {
         LL_DMA_ClearFlag_HT1(DMA1);
-        LL_GPIO_SetOutputPin(CH12_GPIO_Port, CH12_Pin);
 
         if (sending_reset)
         {
@@ -33,7 +23,6 @@ void DMA1_Channel1_IRQHandler(void)
         	{
         		pwm_buf[i] = 0;
         	}
-    		LL_GPIO_ResetOutputPin(CH12_GPIO_Port, CH12_Pin);
         	return;
         }
 
@@ -69,18 +58,15 @@ void DMA1_Channel1_IRQHandler(void)
         pwm_buf[23] = (b & 0x01) ? WS_T1H : WS_T0H;
 
         led_index++;
-        if (led_index == LED_COUNT)
+        if (led_index >= LED_COUNT)
         {
             sending_reset = true;
         }
-
-		LL_GPIO_ResetOutputPin(CH12_GPIO_Port, CH12_Pin);
     }
 
     if (LL_DMA_IsActiveFlag_TC1(DMA1)) // здесь указатель массива равен 0 длинны
     {
         LL_DMA_ClearFlag_TC1(DMA1);
-        LL_GPIO_SetOutputPin(CH13_GPIO_Port, CH13_Pin);
 
         if (sending_reset)
         {
@@ -88,7 +74,6 @@ void DMA1_Channel1_IRQHandler(void)
         	{
         		pwm_buf[i] = 0;
         	}
-    		LL_GPIO_ResetOutputPin(CH13_GPIO_Port, CH13_Pin);
         	return;
         }
 
@@ -125,12 +110,10 @@ void DMA1_Channel1_IRQHandler(void)
         pwm_buf[47] = (b & 0x01) ? WS_T1H : WS_T0H;
 
         led_index++;
-        if (led_index == LED_COUNT)
+        if (led_index >= LED_COUNT)
         {
             sending_reset = true;
         }
-
-		LL_GPIO_ResetOutputPin(CH13_GPIO_Port, CH13_Pin);
     }
 }
 
@@ -225,6 +208,7 @@ void TIM1_DMA_LED_Init(void) {
 /* ===== старт передачи ===== */
 void ws2812_start(void)
 {
+    if (!sending_reset) return; // уже идёт передача
     led_index = 0;
     sending_reset = false;
 }
