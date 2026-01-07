@@ -70,6 +70,12 @@ void MX_GPIO_Init(void);
 /* Private defines -----------------------------------------------------------*/
 #define LEDB_Pin LL_GPIO_PIN_4
 #define LEDB_GPIO_Port GPIOA
+#define CH12_Pin LL_GPIO_PIN_5
+#define CH12_GPIO_Port GPIOA
+#define CH13_Pin LL_GPIO_PIN_6
+#define CH13_GPIO_Port GPIOA
+#define CH14_Pin LL_GPIO_PIN_7
+#define CH14_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

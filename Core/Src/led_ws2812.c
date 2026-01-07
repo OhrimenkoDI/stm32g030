@@ -12,96 +12,154 @@ static uint32_t led_index = 0;
 static uint8_t bit_index = 0;
 static bool sending_reset = false;
 
-
-
-/* ===== заполнение половины буфера ===== */
-static void fill_half(uint16_t *dst, uint32_t count)
-{
-    for (uint32_t i = 0; i < count; i++)
-    {
-        if (sending_reset)
-        {
-            dst[i] = 0;
-            continue;
-        }
-
-        uint8_t byte;
-
-        /* порядок WS2812: G R B */
-        if (bit_index < 8)
-            byte = ws2812_rgb[led_index][1];
-        else if (bit_index < 16)
-            byte = ws2812_rgb[led_index][0];
-        else
-            byte = ws2812_rgb[led_index][2];
-
-        uint8_t bit = 7 - (bit_index & 7);
-        dst[i] = (byte & (1 << bit)) ? WS_T1H : WS_T0H;
-
-        bit_index++;
-        if (bit_index == 24)
-        {
-            bit_index = 0;
-            led_index++;
-            if (led_index == LED_COUNT)
-            {
-                sending_reset = true;
-            }
-        }
-    }
-}
-
-/* ===== IRQ half ===== */
-void ws2812_dma_half_irq(void)
-{
-    fill_half(&pwm_buf[0], DMA_HALF_BITS);
-}
-
-/* ===== IRQ full ===== */
-void ws2812_dma_full_irq(void)
-{
-    fill_half(&pwm_buf[DMA_HALF_BITS], DMA_HALF_BITS);
-}
-
-/* ===== DMA IRQ ===== */
 void DMA1_Channel1_IRQHandler(void)
 {
-    if (LL_DMA_IsActiveFlag_HT1(DMA1))
+	uint32_t total = DMA_BUF_BITS;
+	uint32_t remaining = LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_1);
+	uint32_t idx = total - remaining;
+
+	if (idx<2){
+		LL_GPIO_TogglePin(CH14_GPIO_Port, CH14_Pin);
+	}
+
+	if (LL_DMA_IsActiveFlag_HT1(DMA1)) // здесь указатель массива равен 1/2 длинны DMA_HALF_BITS
     {
         LL_DMA_ClearFlag_HT1(DMA1);
-        ws2812_dma_half_irq();
+        LL_GPIO_SetOutputPin(CH12_GPIO_Port, CH12_Pin);
+
+        if (sending_reset)
+        {
+        	for (uint32_t i = 0; i < DMA_HALF_BITS; i++)
+        	{
+        		pwm_buf[i] = 0;
+        	}
+    		LL_GPIO_ResetOutputPin(CH12_GPIO_Port, CH12_Pin);
+        	return;
+        }
+
+        uint8_t g = ws2812_rgb[led_index][1];
+        uint8_t r = ws2812_rgb[led_index][0];
+        uint8_t b = ws2812_rgb[led_index][2];
+
+        pwm_buf[0] = (g & 0x80) ? WS_T1H : WS_T0H; // bit 7
+        pwm_buf[1] = (g & 0x40) ? WS_T1H : WS_T0H; // bit 6
+        pwm_buf[2] = (g & 0x20) ? WS_T1H : WS_T0H; // bit 5
+        pwm_buf[3] = (g & 0x10) ? WS_T1H : WS_T0H; // bit 4
+        pwm_buf[4] = (g & 0x08) ? WS_T1H : WS_T0H; // bit 3
+        pwm_buf[5] = (g & 0x04) ? WS_T1H : WS_T0H; // bit 2
+        pwm_buf[6] = (g & 0x02) ? WS_T1H : WS_T0H; // bit 1
+        pwm_buf[7] = (g & 0x01) ? WS_T1H : WS_T0H; // bit 0
+
+        pwm_buf[ 8] = (r & 0x80) ? WS_T1H : WS_T0H;
+        pwm_buf[ 9] = (r & 0x40) ? WS_T1H : WS_T0H;
+        pwm_buf[10] = (r & 0x20) ? WS_T1H : WS_T0H;
+        pwm_buf[11] = (r & 0x10) ? WS_T1H : WS_T0H;
+        pwm_buf[12] = (r & 0x08) ? WS_T1H : WS_T0H;
+        pwm_buf[13] = (r & 0x04) ? WS_T1H : WS_T0H;
+        pwm_buf[14] = (r & 0x02) ? WS_T1H : WS_T0H;
+        pwm_buf[15] = (r & 0x01) ? WS_T1H : WS_T0H;
+
+        pwm_buf[16] = (b & 0x80) ? WS_T1H : WS_T0H;
+        pwm_buf[17] = (b & 0x40) ? WS_T1H : WS_T0H;
+        pwm_buf[18] = (b & 0x20) ? WS_T1H : WS_T0H;
+        pwm_buf[19] = (b & 0x10) ? WS_T1H : WS_T0H;
+        pwm_buf[20] = (b & 0x08) ? WS_T1H : WS_T0H;
+        pwm_buf[21] = (b & 0x04) ? WS_T1H : WS_T0H;
+        pwm_buf[22] = (b & 0x02) ? WS_T1H : WS_T0H;
+        pwm_buf[23] = (b & 0x01) ? WS_T1H : WS_T0H;
+
+        led_index++;
+        if (led_index == LED_COUNT)
+        {
+            sending_reset = true;
+        }
+
+		LL_GPIO_ResetOutputPin(CH12_GPIO_Port, CH12_Pin);
     }
 
-    if (LL_DMA_IsActiveFlag_TC1(DMA1))
+    if (LL_DMA_IsActiveFlag_TC1(DMA1)) // здесь указатель массива равен 0 длинны
     {
         LL_DMA_ClearFlag_TC1(DMA1);
-        ws2812_dma_full_irq();
+        LL_GPIO_SetOutputPin(CH13_GPIO_Port, CH13_Pin);
+
+        if (sending_reset)
+        {
+        	for (uint32_t i = DMA_HALF_BITS; i < DMA_BUF_BITS; i++)
+        	{
+        		pwm_buf[i] = 0;
+        	}
+    		LL_GPIO_ResetOutputPin(CH13_GPIO_Port, CH13_Pin);
+        	return;
+        }
+
+
+        uint8_t g = ws2812_rgb[led_index][1];
+        uint8_t r = ws2812_rgb[led_index][0];
+        uint8_t b = ws2812_rgb[led_index][2];
+
+        pwm_buf[24] = (g & 0x80) ? WS_T1H : WS_T0H; // bit 7
+        pwm_buf[25] = (g & 0x40) ? WS_T1H : WS_T0H; // bit 6
+        pwm_buf[26] = (g & 0x20) ? WS_T1H : WS_T0H; // bit 5
+        pwm_buf[27] = (g & 0x10) ? WS_T1H : WS_T0H; // bit 4
+        pwm_buf[28] = (g & 0x08) ? WS_T1H : WS_T0H; // bit 3
+        pwm_buf[29] = (g & 0x04) ? WS_T1H : WS_T0H; // bit 2
+        pwm_buf[30] = (g & 0x02) ? WS_T1H : WS_T0H; // bit 1
+        pwm_buf[31] = (g & 0x01) ? WS_T1H : WS_T0H; // bit 0
+
+        pwm_buf[32] = (r & 0x80) ? WS_T1H : WS_T0H;
+        pwm_buf[33] = (r & 0x40) ? WS_T1H : WS_T0H;
+        pwm_buf[34] = (r & 0x20) ? WS_T1H : WS_T0H;
+        pwm_buf[35] = (r & 0x10) ? WS_T1H : WS_T0H;
+        pwm_buf[36] = (r & 0x08) ? WS_T1H : WS_T0H;
+        pwm_buf[37] = (r & 0x04) ? WS_T1H : WS_T0H;
+        pwm_buf[38] = (r & 0x02) ? WS_T1H : WS_T0H;
+        pwm_buf[39] = (r & 0x01) ? WS_T1H : WS_T0H;
+
+        pwm_buf[40] = (b & 0x80) ? WS_T1H : WS_T0H;
+        pwm_buf[41] = (b & 0x40) ? WS_T1H : WS_T0H;
+        pwm_buf[42] = (b & 0x20) ? WS_T1H : WS_T0H;
+        pwm_buf[43] = (b & 0x10) ? WS_T1H : WS_T0H;
+        pwm_buf[44] = (b & 0x08) ? WS_T1H : WS_T0H;
+        pwm_buf[45] = (b & 0x04) ? WS_T1H : WS_T0H;
+        pwm_buf[46] = (b & 0x02) ? WS_T1H : WS_T0H;
+        pwm_buf[47] = (b & 0x01) ? WS_T1H : WS_T0H;
+
+        led_index++;
+        if (led_index == LED_COUNT)
+        {
+            sending_reset = true;
+        }
+
+		LL_GPIO_ResetOutputPin(CH13_GPIO_Port, CH13_Pin);
     }
 }
 
 
-/*
-void SetRGB(uint8_t r, uint8_t g, uint8_t b, uint16_t led_idx) {
-    if (led_idx >= LED_COUNT) return;
 
-    // Данные в WS2812B: GRB, MSB first
-    for (int i = 0; i < 8; i++) {
-        led_buffer[led_idx * 24 + i]      = (g & (0x80 >> i)) ? CW1 : CW0;
-        led_buffer[led_idx * 24 + 8 + i]  = (r & (0x80 >> i)) ? CW1 : CW0;
-        led_buffer[led_idx * 24 + 16 + i] = (b & (0x80 >> i)) ? CW1 : CW0;
-    }
-}*/
+
+void ws2812_set_rgb(uint16_t led, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (led >= LED_COUNT)
+        return;
+
+    ws2812_rgb[led][0] = r;
+    ws2812_rgb[led][1] = g;
+    ws2812_rgb[led][2] = b;
+}
 
 void TIM1_DMA_LED_Init(void) {
-    led_index = 0;
-    bit_index = 0;
-    sending_reset = false;
-
-    fill_half(&pwm_buf[0], DMA_HALF_BITS);
-    fill_half(&pwm_buf[DMA_HALF_BITS], DMA_HALF_BITS);
-
     // 0. Очистка буфера (Reset bits должны быть 0)
-  //  memset(led_buffer, 0, sizeof(led_buffer));
+    sending_reset = true;
+    memset(pwm_buf, 0, sizeof(pwm_buf));
+
+/*
+	 for (uint32_t i = 0; i < DMA_BUF_BITS; i++)
+	 {
+		 pwm_buf[i]=i+1;
+		 pwm_buf1[i]=i+10;
+
+	 }/**/
+
 
     // 1. Тактирование
     LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_TIM1);
@@ -124,18 +182,18 @@ void TIM1_DMA_LED_Init(void) {
     LL_DMA_ConfigTransfer(DMA1, LL_DMA_CHANNEL_1,
         LL_DMA_DIRECTION_MEMORY_TO_PERIPH |
         LL_DMA_PRIORITY_HIGH |
+//		LL_DMA_MODE_NORMAL |
 		LL_DMA_MODE_CIRCULAR |
         LL_DMA_PERIPH_NOINCREMENT |
         LL_DMA_MEMORY_INCREMENT);
 
-    LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, DMA_BUF_BITS);
+    LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_1, (uint32_t)pwm_buf);
     LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MDATAALIGN_HALFWORD);
+
+    LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_1, (uint32_t)&TIM1->CCR1);
     LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PDATAALIGN_HALFWORD);
 
-  /*  LL_DMA_ConfigAddresses(DMA1, LL_DMA_CHANNEL_1,
-        (uint32_t)led_buffer,
-        (uint32_t)&TIM1->CCR1,
-        LL_DMA_DIRECTION_MEMORY_TO_PERIPH);*/
+    LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, DMA_BUF_BITS);
 
     // 4. Настройка таймера TIM1
     LL_TIM_SetPrescaler(TIM1, 0);
@@ -157,30 +215,16 @@ void TIM1_DMA_LED_Init(void) {
     LL_TIM_OC_SetIdleState(TIM1, LL_TIM_CHANNEL_CH1, LL_TIM_OCIDLESTATE_LOW);
 
     LL_TIM_EnableARRPreload(TIM1);
-
-
     LL_TIM_OC_SetCompareCH1(TIM1, 0);
+
+    LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
+    LL_TIM_EnableCounter(TIM1);
+
 }
 
 /* ===== старт передачи ===== */
 void ws2812_start(void)
 {
     led_index = 0;
-    bit_index = 0;
     sending_reset = false;
-
-    fill_half(&pwm_buf[0], DMA_HALF_BITS);
-    fill_half(&pwm_buf[DMA_HALF_BITS], DMA_HALF_BITS);
-
-    LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_1, (uint32_t)pwm_buf);
-    LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_1, (uint32_t)&TIM1->CCR1);
-    LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, DMA_BUF_BITS);
-
-    LL_DMA_EnableIT_HT(DMA1, LL_DMA_CHANNEL_1);
-    LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_1);
-
-    LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
-    LL_TIM_EnableCounter(TIM1);
-
-
 }

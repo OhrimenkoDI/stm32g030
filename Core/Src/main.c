@@ -109,11 +109,15 @@ int main(void)
   SetRGB(0,255,0,5);
   SetRGB(0,0,255,6);*/
 
-  ws2812_rgb[2][0]=100;
-  ws2812_rgb[2][1]=150;
-  ws2812_rgb[2][2]=255;
+  ws2812_set_rgb(0,255,0,0);
+  ws2812_set_rgb(1,0,255,0);
+  ws2812_set_rgb(2,0,0,255);
+  ws2812_set_rgb(3,255,255,0);
+  ws2812_set_rgb(4,255,0,255);
+  ws2812_set_rgb(5,0,255,255);
 
-
+  static uint16_t led = 0;
+  static uint16_t lastled = LED_COUNT - 1;
 
 
   while (1)
@@ -121,12 +125,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-      LL_GPIO_SetOutputPin(LEDB_GPIO_Port, LEDB_Pin);
-      LL_mDelay(100);
-      LL_GPIO_ResetOutputPin(LEDB_GPIO_Port, LEDB_Pin);
-      LL_mDelay(100);
+      LL_mDelay(4);
 
+
+      ws2812_set_rgb(lastled,0,0,0);
+      ws2812_set_rgb(led,0,255,255);
+      lastled=led;
+      led = (led+1)% LED_COUNT;
       ws2812_start();
+
+
+  	LL_GPIO_TogglePin(LEDB_GPIO_Port, LEDB_Pin);
   }
   /* USER CODE END 3 */
 }
@@ -263,7 +272,7 @@ static void MX_TIM1_Init(void)
   */
   GPIO_InitStruct.Pin = LL_GPIO_PIN_8;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_2;
@@ -285,9 +294,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   NVIC_SetPriority(DMA1_Channel1_IRQn, 0);
   NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-  /* DMA1_Ch4_5_DMAMUX1_OVR_IRQn interrupt configuration */
-  NVIC_SetPriority(DMA1_Ch4_5_DMAMUX1_OVR_IRQn, 0);
-  NVIC_EnableIRQ(DMA1_Ch4_5_DMAMUX1_OVR_IRQn);
 
 }
 
@@ -310,12 +316,45 @@ void MX_GPIO_Init(void)
   LL_GPIO_ResetOutputPin(LEDB_GPIO_Port, LEDB_Pin);
 
   /**/
+  LL_GPIO_ResetOutputPin(CH12_GPIO_Port, CH12_Pin);
+
+  /**/
+  LL_GPIO_ResetOutputPin(CH13_GPIO_Port, CH13_Pin);
+
+  /**/
+  LL_GPIO_ResetOutputPin(CH14_GPIO_Port, CH14_Pin);
+
+  /**/
   GPIO_InitStruct.Pin = LEDB_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   LL_GPIO_Init(LEDB_GPIO_Port, &GPIO_InitStruct);
+
+  /**/
+  GPIO_InitStruct.Pin = CH12_Pin;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  LL_GPIO_Init(CH12_GPIO_Port, &GPIO_InitStruct);
+
+  /**/
+  GPIO_InitStruct.Pin = CH13_Pin;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  LL_GPIO_Init(CH13_GPIO_Port, &GPIO_InitStruct);
+
+  /**/
+  GPIO_InitStruct.Pin = CH14_Pin;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  LL_GPIO_Init(CH14_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
