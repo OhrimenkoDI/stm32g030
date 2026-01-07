@@ -1,0 +1,66 @@
+#include "led_ws2812.h"
+#include <string.h>
+
+uint16_t led_buffer[BUFFER_SIZE];
+
+void SetRGB(uint8_t r, uint8_t g, uint8_t b, uint16_t led_idx) {
+    if (led_idx >= LED_COUNT) return;
+
+    // Данные в WS2812B: GRB, MSB first
+    for (int i = 0; i < 8; i++) {
+        led_buffer[led_idx * 24 + i]      = (g & (0x80 >> i)) ? CW1 : CW0;
+        led_buffer[led_idx * 24 + 8 + i]  = (r & (0x80 >> i)) ? CW1 : CW0;
+        led_buffer[led_idx * 24 + 16 + i] = (b & (0x80 >> i)) ? CW1 : CW0;
+    }
+}
+
+void TIM1_DMA_LED_Init(void) {
+    // 0. Очистка буфера (Reset bits должны быть 0)
+    memset(led_buffer, 0, sizeof(led_buffer));
+
+    // 1. Тактирование
+    LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_TIM1);
+    LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA1);
+    LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+
+    // 2. GPIO PA8 -> TIM1_CH1
+    LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_8, LL_GPIO_MODE_ALTERNATE);
+    LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_8, LL_GPIO_AF_2);
+    LL_GPIO_SetPinSpeed(GPIOA, LL_GPIO_PIN_8, LL_GPIO_SPEED_FREQ_VERY_HIGH);
+    LL_GPIO_SetPinPull(GPIOA, LL_GPIO_PIN_8, LL_GPIO_PULL_NO);
+
+    // 3. Настройка DMA1 Channel 1 и DMAMUX
+    // В STM32G0 нужно обязательно связать запрос таймера с каналом DMA через DMAMUX
+    LL_DMAMUX_SetRequestID(DMAMUX1, LL_DMAMUX_CHANNEL_0, LL_DMAMUX_REQ_TIM1_CH1);
+
+    LL_DMA_ConfigTransfer(DMA1, LL_DMA_CHANNEL_1,
+        LL_DMA_DIRECTION_MEMORY_TO_PERIPH |
+        LL_DMA_PRIORITY_HIGH |
+        LL_DMA_MODE_CIRCULAR |
+        LL_DMA_PERIPH_NOINCREMENT |
+        LL_DMA_MEMORY_INCREMENT);
+
+    LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, BUFFER_SIZE);
+    LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MDATAALIGN_HALFWORD);
+    LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PDATAALIGN_HALFWORD);
+
+    LL_DMA_ConfigAddresses(DMA1, LL_DMA_CHANNEL_1,
+        (uint32_t)led_buffer,
+        (uint32_t)&TIM1->CCR1,
+        LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
+
+    // 4. Настройка таймера TIM1
+    LL_TIM_SetPrescaler(TIM1, 0);
+    LL_TIM_SetAutoReload(TIM1, PWM_ARR);
+    LL_TIM_OC_SetMode(TIM1, LL_TIM_CHANNEL_CH1, LL_TIM_OCMODE_PWM1);
+    LL_TIM_OC_EnablePreload(TIM1, LL_TIM_CHANNEL_CH1);
+    LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH1);
+
+    // Особенности TIM1 (Advanced Timer)
+    LL_TIM_EnableAllOutputs(TIM1); // MOE = 1
+    LL_TIM_EnableDMAReq_CC1(TIM1); // Запрос DMA по событию Compare CH1
+
+    // 5. Запуск
+    LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
+    LL_TIM_EnableCounter(TIM1);
+}
