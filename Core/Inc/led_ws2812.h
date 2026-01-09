@@ -17,6 +17,7 @@
 #include "stm32g0xx_ll_tim.h"
 #include "stm32g0xx_ll_gpio.h"
 #include "stm32g0xx_ll_dma.h"
+#include "stm32g0xx_ll_bus.h"
 #include "main.h"
 
 
